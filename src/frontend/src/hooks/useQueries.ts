@@ -119,6 +119,14 @@ export function useCreateOrder() {
   });
 }
 
+interface CashfreeOrderResponse {
+  order_id?: string;
+  order_status?: string;
+  payment_session_id?: string;
+  payment_link?: string;
+  [key: string]: unknown;
+}
+
 export function useCreatePaymentLink() {
   const { actor } = useActor();
   return useMutation({
@@ -134,12 +142,23 @@ export function useCreatePaymentLink() {
       callbackUrl: string;
     }) => {
       if (!actor) throw new Error("Not connected");
-      return actor.createCashfreePaymentLink(
+      const raw = await actor.createCashfreePaymentLink(
         orderId,
         amount,
         email,
         callbackUrl,
       );
+      let parsed: CashfreeOrderResponse;
+      try {
+        parsed = JSON.parse(raw as string) as CashfreeOrderResponse;
+      } catch {
+        throw new Error("Failed to get payment link from Cashfree");
+      }
+      const paymentLink = parsed.payment_link;
+      if (!paymentLink || typeof paymentLink !== "string") {
+        throw new Error("Failed to get payment link from Cashfree");
+      }
+      return paymentLink;
     },
   });
 }
